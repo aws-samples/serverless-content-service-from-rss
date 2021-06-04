@@ -1,0 +1,114 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Dynamic content service with RSS parser
+
+Resources:
+  DDBtable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      AttributeDefinitions:
+      - AttributeName: PK
+        AttributeType: S
+      - AttributeName: SK
+        AttributeType: N
+      KeySchema:
+      - AttributeName: PK
+        KeyType: HASH
+      - AttributeName: SK
+        KeyType: RANGE
+      BillingMode: PAY_PER_REQUEST    
+
+  ImportFunction:
+    Type: AWS::Serverless::Function 
+    Properties:
+      Timeout: 10
+      CodeUri: parser/
+      Handler: app.handler
+      Runtime: nodejs14.x
+      MemorySize: 128
+      Environment:
+        Variables:
+          Feed: 'https://aws.amazon.com/about-aws/whats-new/recent/feed/'
+          TableName: !Ref DDBtable        
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref DDBtable        
+      Events:
+        CWSchedule:
+          Type: Schedule
+          Properties:
+            Schedule: 'rate(1 hour)'
+            Name: ParserSchedule
+            Description: ParserSchedule
+            Enabled: False     
+
+  MyApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      # CORS configuration - this is open for development only and should be restricted in prod.
+      # See https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-property-httpapi-httpapicorsconfiguration.html   
+      CorsConfiguration:
+        AllowMethods:
+          - GET
+          - POST
+          - DELETE
+          - OPTIONS
+        AllowHeaders:
+          - "*"   
+        AllowOrigins: 
+          - "*"      
+
+  FetchFunction:
+    Type: AWS::Serverless::Function 
+    Properties:
+      Timeout: 3
+      CodeUri: getItems/
+      Handler: app.handler
+      Runtime: nodejs14.x
+      MemorySize: 128
+      Environment:
+        Variables:
+          TableName: !Ref DDBtable        
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref DDBtable        
+      Events:
+        UploadAssetAPI:
+          Type: HttpApi
+          Properties:
+            Path: /items
+            Method: get
+            ApiId: !Ref MyApi
+
+  CloudFront:  
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        IPV6Enabled: true
+        HttpVersion: http2
+        Comment: !Ref 'AWS::StackName'
+        Origins:
+        - Id: APIGOrigin
+          DomainName: !Sub ${MyApi}.execute-api.${AWS::Region}.amazonaws.com
+          CustomOriginConfig:
+            HTTPSPort: 443
+            OriginProtocolPolicy: https-only
+        DefaultCacheBehavior:
+          AllowedMethods: ["GET", "HEAD"]
+          CachedMethods: ["GET", "HEAD"]
+          ForwardedValues:
+            Headers:
+            - Access-Control-Request-Headers
+            - Access-Control-Request-Method
+            - Origin
+            QueryString: true
+          TargetOriginId: APIGOrigin
+          ViewerProtocolPolicy: https-only
+          Compress: true
+          DefaultTTL: 300
+
+Outputs: 
+  MyDomainName:
+    Description: "Domain name"
+    Value: !GetAtt CloudFront.DomainName
