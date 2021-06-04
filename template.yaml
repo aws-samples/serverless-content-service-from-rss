@@ -34,13 +34,13 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !Ref DDBtable        
       Events:
-        CWSchedule:
+        EventBridgeSchedule:
           Type: Schedule
           Properties:
             Schedule: 'rate(1 hour)'
-            Name: ParserSchedule
-            Description: ParserSchedule
-            Enabled: False     
+            Name: ImportSchedule
+            Description: Import schedule for RSS parser
+            Enabled: True     
 
   MyApi:
     Type: AWS::Serverless::HttpApi
@@ -58,7 +58,7 @@ Resources:
         AllowOrigins: 
           - "*"      
 
-  FetchFunction:
+  GetItems:
     Type: AWS::Serverless::Function 
     Properties:
       Timeout: 3
