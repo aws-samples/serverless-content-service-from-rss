@@ -3,7 +3,7 @@
 
 This example application shows how to build a serverless application that fetches data from an external data on a schedule, then serves the content to CloudFront domain name via an API Gateway endpoint.
 
-To learn more about how this application works, see the blog post at: TBD
+To learn more about how this application works, see the blog post at: https://acloudguru.com/blog/engineering/serving-dynamic-website-content-with-serverless-architecture
 
 Important: this application uses various AWS services and there are costs associated with these services after the Free Tier usage - please see the [AWS Pricing page](https://aws.amazon.com/pricing/) for details. You are responsible for any AWS costs incurred. No warranty is implied in this example.
 
